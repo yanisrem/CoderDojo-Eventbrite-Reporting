@@ -83,6 +83,9 @@ def filter_events(n_clicks, start_date, end_date, token):
     if not start_date or not end_date:
         return html.Div("Please select both start and end dates.", style={'color': 'red'})
 
+    if start_date > end_date:
+        return html.Div("Start date cannot be greater than end date.", style={'color': 'red'})
+
     if not token:
         return html.Div("Token not found. Please log in again.", style={'color': 'red'})
 
@@ -172,7 +175,6 @@ def display_selected_events(selected_event_names, token, start_date, end_date):
         age_category_counts.columns = ['Age', 'Frequency']
         age_category_counts['Frequency'] = age_category_counts['Frequency'] * 100
         age_category_counts = age_category_counts.nlargest(15, 'Frequency')
-
         age_barplot = px.bar(
             age_category_counts,
             x='Age', y='Frequency',
@@ -189,10 +191,10 @@ def display_selected_events(selected_event_names, token, start_date, end_date):
         gender_category_counts['Frequency'] = gender_category_counts['Frequency'] * 100
         gender_barplot = px.bar(
             gender_category_counts,
-            x='index', y='Gender',
+            x='Gender', y='Frequency',
             title="Attendees by gender",
-            labels={'index': 'Gender', 'Gender': 'Frequency (in %)'},
-            color='index',
+            labels={'Gender': 'Gender', 'Frequency': 'Frequency (in %)'},
+            color='Gender',
             color_discrete_map={'male': 'blue', 'female': 'pink'}
         )
 
