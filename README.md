@@ -44,6 +44,6 @@ python app.py
 ## Screenshots
 
 <div style="text-align:center;">
-  <img src="./src/assets/screenshot_authentification_page.png" width="300" height="200">
+  <img src="./src/assets/screenshot_authentification_page.png" width="300" height="250">
   <img src="./src/assets/screenshot_main_page.png" width="200" height="150">
 </div>
