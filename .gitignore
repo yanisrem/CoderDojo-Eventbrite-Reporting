@@ -3,3 +3,6 @@
 /main_functions.ipynb
 /scrapping.ipynb
 /test_api.ipynb
+api/request_scrappping_eventbrite.py
+dist/
+build/
