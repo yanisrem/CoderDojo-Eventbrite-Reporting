@@ -10,6 +10,12 @@ from services.events import extract_event_informations, extract_attendee_informa
 from concurrent.futures import ThreadPoolExecutor
 import dash_bootstrap_components as dbc
 import plotly.express as px
+from dash.long_callback import DiskcacheLongCallbackManager
+
+## Diskcache
+import diskcache
+cache = diskcache.Cache("./cache")
+long_callback_manager = DiskcacheLongCallbackManager(cache)
 
 # Init Dash app
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP], suppress_callback_exceptions=True)
@@ -69,12 +75,13 @@ def authenticate(n_clicks, token):
 
 
 # Callback to filter events
-@app.callback(
+@app.long_callback(
     Output('event-list', 'children'),
     Input('filter-button', 'n_clicks'),
     State('start-date-picker', 'date'),
     State('end-date-picker', 'date'),
-    State('token-store', 'data')  # Get stored token
+    State('token-store', 'data'),  # Get stored token
+    manager=long_callback_manager,
 )
 def filter_events(n_clicks, start_date, end_date, token):
     if n_clicks == 0:
@@ -247,12 +254,31 @@ def display_selected_events(selected_event_names, token, start_date, end_date):
         return html.Div(f"An error occurred: {str(e)}", style={'color': 'red'})
 
 
+# Callback to display selected events and attendees
+@app.long_callback(
+    Output('event-details', 'children'),
+    Input('validate-button', 'n_clicks'),
+    State('event-selector', 'value'),
+    State('token-store', 'data'),
+    State('start-date-picker', 'date'),
+    State('end-date-picker', 'date'),
+    manager=long_callback_manager
+)
+def display_event_details(n_clicks, selected_event_names, token, start_date, end_date):
+    if n_clicks == 0:
+        raise PreventUpdate
+
+    if selected_event_names:
+        return display_selected_events(selected_event_names, token, start_date, end_date)
+    return html.Div("Please select events to display details.")
+
 
 # Callback to update the table
-@app.callback(
+@app.long_callback(
     Output('attendees-table', 'columns'),
     Input('column-selector', 'value'),
-    State('attendees-table', 'data')
+    State('attendees-table', 'data'),
+    manager=long_callback_manager
 )
 def update_table_columns(selected_columns, data):
     if not selected_columns:
@@ -261,7 +287,7 @@ def update_table_columns(selected_columns, data):
 
 
 # Callback to export table as csv or xlsx
-@app.callback(
+@app.long_callback(
     Output("download-dataframe", "data"),
     [Input("export-csv-button", "n_clicks"),
      Input("export-xlsx-button", "n_clicks")],
@@ -269,7 +295,8 @@ def update_table_columns(selected_columns, data):
     State("column-selector", "value"),
     State("start-date-picker", "date"),
     State("end-date-picker", "date"),
-    prevent_initial_call=True
+    prevent_initial_call=True,
+    manager=long_callback_manager
 )
 def export_table(n_clicks_csv, n_clicks_xlsx, data, selected_columns, start_date, end_date):
     if not data or not selected_columns:
@@ -292,25 +319,6 @@ def export_table(n_clicks_csv, n_clicks_xlsx, data, selected_columns, start_date
         return dcc.send_data_frame(df_filtered.to_excel, filename, index=False)
     else:
         return html.Div("Error during export. Please try again.", style={'color': 'red'})
-
-
-# Callback to display selected events and attendees
-@app.callback(
-    Output('event-details', 'children'),
-    Input('validate-button', 'n_clicks'),
-    State('event-selector', 'value'),
-    State('token-store', 'data'),
-    State('start-date-picker', 'date'),
-    State('end-date-picker', 'date')
-)
-def display_event_details(n_clicks, selected_event_names, token, start_date, end_date):
-    if n_clicks == 0:
-        raise PreventUpdate
-
-    if selected_event_names:
-        return display_selected_events(selected_event_names, token, start_date, end_date)
-    return html.Div("Please select events to display details.")
-
 
 if __name__ == '__main__':
     app.run_server(debug=True)
