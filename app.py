@@ -1,5 +1,6 @@
 import dash
-from dash import dcc, html, Input, Output, State, dash_table
+import os
+from dash import dcc, html, Input, Output, State, dash_table, DiskcacheManager, CeleryManager
 from dash.exceptions import PreventUpdate
 import requests
 import pandas as pd
@@ -10,12 +11,19 @@ from services.events import extract_event_informations, extract_attendee_informa
 from concurrent.futures import ThreadPoolExecutor
 import dash_bootstrap_components as dbc
 import plotly.express as px
-from dash.long_callback import DiskcacheLongCallbackManager
 
 ## Diskcache
-import diskcache
-cache = diskcache.Cache("./cache")
-long_callback_manager = DiskcacheLongCallbackManager(cache)
+if 'REDIS_URL' in os.environ:
+    # Use Redis & Celery if REDIS_URL set as an env variable
+    from celery import Celery
+    celery_app = Celery(__name__, broker=os.environ['REDIS_URL'], backend=os.environ['REDIS_URL'])
+    background_callback_manager = CeleryManager(celery_app)
+
+else:
+    # Diskcache for non-production apps when developing locally
+    import diskcache
+    cache = diskcache.Cache("./cache")
+    background_callback_manager = DiskcacheManager(cache)
 
 # Init Dash app
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP], suppress_callback_exceptions=True)
@@ -75,14 +83,16 @@ def authenticate(n_clicks, token):
 
 
 # Callback to filter events
-@app.long_callback(
+@app.callback(
     Output('event-list', 'children'),
     Input('filter-button', 'n_clicks'),
     State('start-date-picker', 'date'),
     State('end-date-picker', 'date'),
     State('token-store', 'data'),  # Get stored token
-    manager=long_callback_manager,
+    background=True,
+    manager=background_callback_manager
 )
+
 def filter_events(n_clicks, start_date, end_date, token):
     if n_clicks == 0:
         raise PreventUpdate
@@ -255,15 +265,17 @@ def display_selected_events(selected_event_names, token, start_date, end_date):
 
 
 # Callback to display selected events and attendees
-@app.long_callback(
+@app.callback(
     Output('event-details', 'children'),
     Input('validate-button', 'n_clicks'),
     State('event-selector', 'value'),
     State('token-store', 'data'),
     State('start-date-picker', 'date'),
     State('end-date-picker', 'date'),
-    manager=long_callback_manager
+    background=True,
+    manager=background_callback_manager
 )
+
 def display_event_details(n_clicks, selected_event_names, token, start_date, end_date):
     if n_clicks == 0:
         raise PreventUpdate
@@ -274,12 +286,12 @@ def display_event_details(n_clicks, selected_event_names, token, start_date, end
 
 
 # Callback to update the table
-@app.long_callback(
+@app.callback(
     Output('attendees-table', 'columns'),
     Input('column-selector', 'value'),
-    State('attendees-table', 'data'),
-    manager=long_callback_manager
+    State('attendees-table', 'data')
 )
+
 def update_table_columns(selected_columns, data):
     if not selected_columns:
         raise PreventUpdate
@@ -287,7 +299,7 @@ def update_table_columns(selected_columns, data):
 
 
 # Callback to export table as csv or xlsx
-@app.long_callback(
+@app.callback(
     Output("download-dataframe", "data"),
     [Input("export-csv-button", "n_clicks"),
      Input("export-xlsx-button", "n_clicks")],
@@ -296,7 +308,8 @@ def update_table_columns(selected_columns, data):
     State("start-date-picker", "date"),
     State("end-date-picker", "date"),
     prevent_initial_call=True,
-    manager=long_callback_manager
+    background=True,
+    manager=background_callback_manager
 )
 def export_table(n_clicks_csv, n_clicks_xlsx, data, selected_columns, start_date, end_date):
     if not data or not selected_columns:

@@ -6,4 +6,5 @@
 api/request_scrappping_eventbrite.py
 dist/
 build/
+cache/
 /app.spec
