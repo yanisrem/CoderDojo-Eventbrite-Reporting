@@ -331,7 +331,7 @@ def extract_attendee_informations(list_dict_infos_attendees):
             # Extract values or use pd.NA if the key is missing
             event_id = dict_infos_attendee.get("event_id", pd.NA)
             order_id = dict_infos_attendee.get("order_id", pd.NA)
-            order_date = dict_infos_attendee.get("changed", pd.NA)
+            order_date = dict_infos_attendee.get("created", pd.NA)
             ticket_type = dict_infos_attendee.get("ticket_class_name", pd.NA)
             quantity = dict_infos_attendee.get("quantity", pd.NA)
             status = dict_infos_attendee.get("status", pd.NA)
