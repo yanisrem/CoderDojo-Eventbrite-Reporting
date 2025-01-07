@@ -1,4 +1,5 @@
 import pandas as pd
+import re
 
 def extract_list_name_events(response):
     """
@@ -84,18 +85,18 @@ def extract_event_informations(event):
             name = pd.NA
     else:
         name = pd.NA
-    if "description" in list(event.keys()):
-        if "text" in list(event["description"].keys()):
-            description = event["description"]["text"]
-        else:
-            description = pd.NA
+    # if "description" in list(event.keys()):
+    #     if "text" in list(event["description"].keys()):
+    #         description = event["description"]["text"]
+    #     else:
+    #         description = pd.NA
     
-    else:
-        description = pd.NA
-    url = event.get("url", pd.NA)
-    created_date = event.get("created", pd.NA)
-    changed_date = event.get("changed", pd.NA)
-    published_date = event.get("published", pd.NA)
+    # else:
+    #     description = pd.NA
+    # url = event.get("url", pd.NA)
+    # created_date = event.get("created", pd.NA)
+    # changed_date = event.get("changed", pd.NA)
+    # published_date = event.get("published", pd.NA)
     if "start" in list(event.keys()):
         if "local" in list(event["start"].keys()):
             start_date = event["start"]["local"]
@@ -118,11 +119,11 @@ def extract_event_informations(event):
     dict_infos = {
         "Name": name,
         "Event ID": id_event,
-        "Description": description,
-        "Url": url,
-        "Creation Date": created_date,
-        "Modification Date": changed_date,
-        "Publication Date": published_date,
+        # "Description": description,
+        # "Url": url,
+        # "Creation Date": created_date,
+        # "Modification Date": changed_date,
+        # "Publication Date": published_date,
         "Start Date": start_date,
         "End Date": end_date,
         "Capacity": capacity,
@@ -300,6 +301,46 @@ def extract_attendee_informations(list_dict_infos_attendees):
         - The function assumes that the "answers" list contains answers in a specific order (e.g., age, postal code, etc.).
         - The function returns a pandas DataFrame for easy analysis and manipulation.
     """
+
+    def extract_age_from_string(input_string):
+        """
+        Extracts age as a float from a given string.
+
+        Args:
+            input_string (str): The string potentially containing an age.
+
+        Returns:
+            float or pd.NA: The age as a float if found, otherwise pd.NA.
+        """
+        if isinstance(input_string, str):
+            # Search for numbers, including decimals separated by ',' or '.'
+            match = re.search(r'\d+(?:[\.,]\d+)?', input_string)
+            
+            if match:
+                # Replace ',' with '.' for decimal consistency and convert to float
+                result = float(match.group().replace(',', '.'))
+                # Check if whole part contains more than 2 digits. Example: 165.0
+                str_whole_part = str(int(result))
+                if len(str_whole_part) > 2:
+                    return pd.NA
+                else:
+                    return result
+            else:
+                # Return pd.NA if no digits are found
+                return pd.NA
+            
+        elif isinstance(input_string, int):
+            return input_string
+        
+        elif isinstance(input_string, float):
+            return input_string
+        
+        elif pd.isna(input_string):
+            return pd.NA
+        
+        else:
+            return pd.NA
+            
     # Initialize the dictionary to hold attendee information
     if list_dict_infos_attendees == []:
         return []
@@ -348,7 +389,8 @@ def extract_attendee_informations(list_dict_infos_attendees):
             else:
                 dict_question_answer = extract_attendee_questions_answers(list_dict_questions_answers_attendee)
                 birth_date = dict_question_answer["Birth Date"]
-                age = dict_question_answer["Age"]
+                age = dict_question_answer["Age"] #str or NA
+                age = extract_age_from_string(age)
                 postal_code = dict_question_answer["Postal Code"]
                 phone_number = dict_question_answer["Phone Number"]
                 first_name_tutor = dict_question_answer["First Name Parent/Guardian"]

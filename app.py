@@ -1,16 +1,20 @@
-import dash
 import os
-from dash import dcc, html, Input, Output, State, dash_table, DiskcacheManager, CeleryManager
-from dash.exceptions import PreventUpdate
 import requests
 import pandas as pd
+pd.options.mode.chained_assignment = None  # default='warn'
+import numpy as np
+import re
+import unicodedata
+import dash
+from dash import dcc, html, Input, Output, State, dash_table, DiskcacheManager, CeleryManager
+from dash.exceptions import PreventUpdate
+import dash_bootstrap_components as dbc
+from concurrent.futures import ThreadPoolExecutor
+import plotly.express as px
 from controler.auth_page import auth_page
 from controler.main_page import main_page
 from api.request_eventbrite import get_filter_events_organization, get_event_attendees, RateLimitException
 from services.events import extract_event_informations, extract_attendee_informations, extract_list_name_events
-from concurrent.futures import ThreadPoolExecutor
-import dash_bootstrap_components as dbc
-import plotly.express as px
 
 ## Diskcache
 if 'REDIS_URL' in os.environ:
@@ -185,31 +189,101 @@ def display_selected_events(selected_event_names, token, start_date, end_date):
             on=["Event ID"]
         )
 
-        columns = df_infos_events_and_attendees.columns.tolist()
+        def clean_string(string):
+            string_without_accent = unicodedata.normalize('NFD', string).encode('ascii', 'ignore').decode('utf-8')
+            filtered_sting = re.sub(r'[^a-zA-Z]', '', string_without_accent).lower()
+            return filtered_sting
 
-        # Age barplot
-        age_category_counts = df_infos_events_and_attendees['Age'].value_counts(normalize=True).reset_index()
+        df_infos_events_and_attendees["Clean Ticket Type"] = df_infos_events_and_attendees["Ticket Type"].apply(clean_string)
+        df_ticket = pd.read_csv("data/clean_ticket.csv", sep=",", index_col=0)
+        #One new column from df_ticket "Ticket Category": Participant, Volunteer or Other
+        df_infos_events_and_attendees = pd.merge(
+            df_infos_events_and_attendees,
+            df_ticket,
+            how='left',
+            on=["Clean Ticket Type"]
+        )
+        df_infos_events_and_attendees.drop(columns=['Clean Ticket Type'], inplace=True)
+        columns = [
+            'Name', 'Event ID', 'Start Date', 'End Date', 'Capacity', 'Event Status', 
+            'Order ID', 'Order Date', 'Ticket Type', 'Ticket Category', 'Quantity', 
+            'Attendee Status', 'Last Name', 'First Name', 'Gender', 'Age', 'Birth Date', 
+            'Email', 'Address', 'City', 'Postal Code', 'Country', 'Last Name Parent/Guardian', 
+            'First Name Parent/Guardian', 'Phone Number']
+        df_infos_events_and_attendees = df_infos_events_and_attendees[columns]
+        df_infos_events_and_attendees_participants = df_infos_events_and_attendees.loc[df_infos_events_and_attendees["Ticket Category"] == "Participant"]
+        df_infos_events_and_attendees_volunteers = df_infos_events_and_attendees.loc[df_infos_events_and_attendees["Ticket Category"] == "Volunteer"]
+
+        # Age barplot - Participants
+        bins = [-1, 3, 6, 9, 12, 15, 18, np.inf] # [-1, 2], [3, 5], [6, 8], [9,11], [12, 14], [15, 17], [18, +]
+        names = ['Missing', '3-5', '6-8', '9-11', '12-14', '15-17', '17>']
+
+        ## Replace pd.NA by -1 to avoid error in pd.cut()
+        df_infos_events_and_attendees_participants['AgeFilled'] = df_infos_events_and_attendees_participants['Age'].fillna(-1)
+        df_infos_events_and_attendees_participants['AgeRange'] = pd.cut(df_infos_events_and_attendees_participants['AgeFilled'],
+                                                                        bins=bins,
+                                                                        labels=names,
+                                                                        right=False)
+        
+        df_infos_events_and_attendees_participants.drop(columns=['AgeFilled'], inplace=True)        
+        age_category_counts = df_infos_events_and_attendees_participants['AgeRange'].value_counts(normalize=True).reset_index()
         age_category_counts.columns = ['Age', 'Frequency']
         age_category_counts['Frequency'] = age_category_counts['Frequency'] * 100
-        age_category_counts = age_category_counts.nlargest(15, 'Frequency')
-        age_barplot = px.bar(
+        age_barplot_participants = px.bar(
             age_category_counts,
             x='Age', y='Frequency',
-            title="Age distribution of attendees",
+            title="Age distribution of participants",
             labels={'Age': 'Age', 'Frequency': 'Frequency (in %)'},
             color='Age',
             color_continuous_scale='Viridis'
         )
-        age_barplot.update_layout(showlegend=False)
+        age_barplot_participants.update_layout(showlegend=False)
 
-        # Gender barplot
-        gender_category_counts = df_infos_events_and_attendees['Gender'].value_counts(normalize=True).reset_index()
+        # Gender barplot - Partcipants
+        gender_category_counts = df_infos_events_and_attendees_participants['Gender'].value_counts(normalize=True).reset_index()
         gender_category_counts.columns = ["Gender", "Frequency"]
         gender_category_counts['Frequency'] = gender_category_counts['Frequency'] * 100
-        gender_barplot = px.bar(
+        gender_barplot_participants = px.bar(
             gender_category_counts,
             x='Gender', y='Frequency',
-            title="Attendees by gender",
+            title="Participants by gender",
+            labels={'Gender': 'Gender', 'Frequency': 'Frequency (in %)'},
+            color='Gender',
+            color_discrete_map={'male': 'blue', 'female': 'pink'}
+        )
+
+        # Age barplot - Volunteers
+        bins = [-1, 0, 16, 22, 31, 41, 51, 61, 71, np.inf] # [-1, -1], [0, 15], [16, 21], [22,30], [31, 40], [41, 50], [51, 60], [61, 70], 70>
+        names = ['Missing', '<16', '16-21', '22-30', '31-40', '41-50', '51-60', '61-70', '70>']
+        ## Replace pd.NA by -1 to avoid error in pd.cut()
+        df_infos_events_and_attendees_volunteers['AgeFilled'] = df_infos_events_and_attendees_volunteers['Age'].fillna(-1)
+        df_infos_events_and_attendees_volunteers['AgeRange'] = pd.cut(df_infos_events_and_attendees_volunteers['AgeFilled'],
+                                                                        bins=bins,
+                                                                        labels=names,
+                                                                        right=False)
+        
+        df_infos_events_and_attendees_volunteers.drop(columns=['AgeFilled'], inplace=True)        
+        age_category_counts = df_infos_events_and_attendees_volunteers['AgeRange'].value_counts(normalize=True).reset_index()
+        age_category_counts.columns = ['Age', 'Frequency']
+        age_category_counts['Frequency'] = age_category_counts['Frequency'] * 100
+        age_barplot_volunteers = px.bar(
+            age_category_counts,
+            x='Age', y='Frequency',
+            title="Age distribution of volunteers",
+            labels={'Age': 'Age', 'Frequency': 'Frequency (in %)'},
+            color='Age',
+            color_continuous_scale='Viridis'
+        )
+        age_barplot_volunteers.update_layout(showlegend=False)
+
+        # Gender barplot - Volunteers
+        gender_category_counts = df_infos_events_and_attendees_volunteers['Gender'].value_counts(normalize=True).reset_index()
+        gender_category_counts.columns = ["Gender", "Frequency"]
+        gender_category_counts['Frequency'] = gender_category_counts['Frequency'] * 100
+        gender_barplot_volunteers = px.bar(
+            gender_category_counts,
+            x='Gender', y='Frequency',
+            title="Volunteers by gender",
             labels={'Gender': 'Gender', 'Frequency': 'Frequency (in %)'},
             color='Gender',
             color_discrete_map={'male': 'blue', 'female': 'pink'}
@@ -235,7 +309,7 @@ def display_selected_events(selected_event_names, token, start_date, end_date):
                 filter_action='native',
                 sort_action='native',
                 row_selectable='multi',
-                page_size=10,
+                page_size=len(df_infos_events_and_attendees),
                 page_action='native',
                 style_cell={'textAlign': 'left', 'padding': '10px', 'fontSize': '14px'},
                 style_header={'backgroundColor': 'rgb(230, 230, 230)', 'fontWeight': 'bold', 'fontSize': '16px'},
@@ -254,8 +328,10 @@ def display_selected_events(selected_event_names, token, start_date, end_date):
             dcc.Download(id="download-dataframe"),
 
             dbc.Row([
-                dbc.Col(dcc.Graph(figure=age_barplot), width=6),
-                dbc.Col(dcc.Graph(figure=gender_barplot), width=6)
+                dbc.Col(dcc.Graph(figure=age_barplot_participants), width=6),
+                dbc.Col(dcc.Graph(figure=gender_barplot_participants), width=6),
+                dbc.Col(dcc.Graph(figure=age_barplot_volunteers), width=6),
+                dbc.Col(dcc.Graph(figure=gender_barplot_volunteers), width=6)
             ])
         ])
     except RateLimitException as e:
