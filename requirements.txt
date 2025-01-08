@@ -10,3 +10,4 @@ diskcache>=5.2.1
 multiprocess>=0.70.12
 psutil>=5.8.0
 celery>=5.4.0
+pgeocode==0.5.0
