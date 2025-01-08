@@ -57,10 +57,25 @@ def get_filter_events_organization(token, start_date, end_date, id_organization=
             page += 1
         except requests.exceptions.RequestException as e:
             raise Exception(f"API request failed: {e}")
-
+        
     return all_events
 
-
+def get_location_event(token, venue_id):
+    base_url = f"https://www.eventbriteapi.com/v3/venues/{venue_id}/"
+    params = {
+        f"token": {token}}
+    try:
+        response = requests.get(base_url, params=params)
+        if response.status_code == 429:
+                raise RateLimitException("Hourly rate limit has been reached for this token. Default rate limits are 2,000 calls per hour.")
+        elif response.status_code != 200:  # Other errors
+            raise Exception(f"API request failed: {e}")
+        data = response.json()
+        dict_address = data.get("address", {})
+        return dict_address
+    except requests.exceptions.RequestException as e:
+            raise Exception(f"API request failed: {e}")
+    
 def get_event_attendees(token, id_event):
     """
     Retrieves the list of attendees for a specific event from the Eventbrite API.

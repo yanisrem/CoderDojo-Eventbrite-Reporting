@@ -3,17 +3,18 @@ import requests
 import pandas as pd
 pd.options.mode.chained_assignment = None  # default='warn'
 import numpy as np
-import re
-import unicodedata
+import re #native
+import unicodedata #native
 import dash
 from dash import dcc, html, Input, Output, State, dash_table, DiskcacheManager, CeleryManager
 from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
 from concurrent.futures import ThreadPoolExecutor
 import plotly.express as px
+import pgeocode
 from controler.auth_page import auth_page
 from controler.main_page import main_page
-from api.request_eventbrite import get_filter_events_organization, get_event_attendees, RateLimitException
+from api.request_eventbrite import get_filter_events_organization, get_location_event, get_event_attendees, RateLimitException
 from services.events import extract_event_informations, extract_attendee_informations, extract_list_name_events
 
 ## Diskcache
@@ -168,6 +169,23 @@ def display_selected_events(selected_event_names, token, start_date, end_date):
         list_event_infos = [extract_event_informations(event) for event in selected_events]
         df_event_infos = pd.DataFrame(list_event_infos)
 
+        # Extract events' location informations
+        list_dict_address = [get_location_event(token, venue_id) for venue_id in df_event_infos["Venue ID"]]
+        #df_addresses_events.columns = ["address_1", "address_2", "city", ..., "postal_code", ...]
+        df_addresses_events = pd.DataFrame(list_dict_address)
+        list_postal_code_events = df_addresses_events["postal_code"].tolist()
+
+        nomi = pgeocode.Nominatim('be')
+        df_event_location_infos = nomi.query_postal_code(list_postal_code_events)
+        df_event_location_infos = df_event_location_infos[["place_name", "postal_code", "county_name", "state_name"]]
+        df_event_location_infos.rename(columns={"place_name": "Dojo City",
+                                        "postal_code": "Dojo Postal Code",
+                                        "county_name": "Dojo Province",
+                                        "state_name": "Dojo Region" #Brussel, Wallonie, Flanders
+                                        }, inplace=True)
+        df_event_infos.drop(columns=["Venue ID"], inplace=True)
+        df_event_infos = pd.concat([df_event_infos, df_event_location_infos], axis=1)
+
         # Extract attendees' informations
         def fetch_attendee_data(event_id):
             """Fetch and process attendee data for a single event."""
@@ -205,7 +223,8 @@ def display_selected_events(selected_event_names, token, start_date, end_date):
         )
         df_infos_events_and_attendees.drop(columns=['Clean Ticket Type'], inplace=True)
         columns = [
-            'Name', 'Event ID', 'Start Date', 'End Date', 'Capacity', 'Event Status', 
+            'Name', 'Event ID', 'Dojo City', 'Dojo Postal Code', 'Dojo Province',
+            'Dojo Region', 'Start Date', 'End Date', 'Capacity', 'Event Status', 
             'Order ID', 'Order Date', 'Ticket Type', 'Ticket Category', 'Quantity', 
             'Attendee Status', 'Last Name', 'First Name', 'Gender', 'Age', 'Birth Date', 
             'Email', 'Address', 'City', 'Postal Code', 'Country', 'Last Name Parent/Guardian', 
