@@ -35,9 +35,9 @@ def get_filter_events_organization(token, start_date, end_date, id_organization=
     params = {
         "order_by": "start_asc",
         "time_filter": "all",
-        f"start_date.range_start": {start_date},
-        f"start_date.range_end": {end_date},
-        f"token": {token}}
+        "start_date.range_start": start_date,
+        "start_date.range_end": end_date,
+        "token": token}
 
     all_events = []
     page = 1 
@@ -61,20 +61,52 @@ def get_filter_events_organization(token, start_date, end_date, id_organization=
     return all_events
 
 def get_location_event(token, venue_id):
+    """
+    Retrieves the address information of a specific venue using the Eventbrite API.
+
+    Parameters:
+    ----------
+    token (str): The authentication token for the Eventbrite API.
+    venue_id (str): The unique identifier of the venue for which address information is being retrieved.
+
+    Returns:
+        dict: A dictionary containing the address details of the venue. If the 'address' key is not
+              present in the API response, an empty dictionary is returned.
+
+    Raises:
+        RateLimitException: raised if the API's hourly rate limit of 2,000 calls per hour is exceeded.
+
+    Exception:
+        Raised for other non-200 HTTP response codes or if the API request fails due to
+        network issues or incorrect parameters. The exception message provides details.
+
+    Example:
+        token = "your_api_token"
+        venue_id = "1234567890"
+        try:
+            address = get_location_event(token, venue_id)
+            print("Venue Address:", address)
+        except Exception as e:
+            print("Error:", e)
+    """
     base_url = f"https://www.eventbriteapi.com/v3/venues/{venue_id}/"
     params = {
-        f"token": {token}}
+        "token": token
+    }
     try:
         response = requests.get(base_url, params=params)
         if response.status_code == 429:
-                raise RateLimitException("Hourly rate limit has been reached for this token. Default rate limits are 2,000 calls per hour.")
+            raise RateLimitException(
+                "Hourly rate limit has been reached for this token. Default rate limits are 2,000 calls per hour."
+            )
         elif response.status_code != 200:  # Other errors
-            raise Exception(f"API request failed: {e}")
+            raise Exception(f"API request failed: {response.status_code}")
         data = response.json()
         dict_address = data.get("address", {})
         return dict_address
     except requests.exceptions.RequestException as e:
-            raise Exception(f"API request failed: {e}")
+        raise Exception(f"API request failed: {e}")
+
     
 def get_event_attendees(token, id_event):
     """
@@ -109,7 +141,7 @@ def get_event_attendees(token, id_event):
     base_url = f"https://www.eventbriteapi.com/v3/events/{id_event}/attendees/"
 
     params = {
-        f"token": {token}}
+        f"token": token}
     
     all_attendees = []
     page = 1 

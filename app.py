@@ -208,9 +208,16 @@ def display_selected_events(selected_event_names, token, start_date, end_date):
         )
 
         def clean_string(string):
-            string_without_accent = unicodedata.normalize('NFD', string).encode('ascii', 'ignore').decode('utf-8')
-            filtered_sting = re.sub(r'[^a-zA-Z]', '', string_without_accent).lower()
-            return filtered_sting
+            if string is pd.NA:
+                return string
+            else:
+                try:
+                    string = str(string)
+                    string_without_accent = unicodedata.normalize('NFD', string).encode('ascii', 'ignore').decode('utf-8')
+                    filtered_sting = re.sub(r'[^a-zA-Z]', '', string_without_accent).lower()
+                    return filtered_sting
+                except:
+                    return string
 
         df_infos_events_and_attendees["Clean Ticket Type"] = df_infos_events_and_attendees["Ticket Type"].apply(clean_string)
         df_ticket = pd.read_csv("data/clean_ticket.csv", sep=",", index_col=0)
@@ -320,20 +327,29 @@ def display_selected_events(selected_event_names, token, start_date, end_date):
                     style={'width': '100%'}
                 ), width=12)
             ]),
-            dash_table.DataTable(
-                id='attendees-table',
-                columns=[{"name": col, "id": col} for col in columns],
-                data=df_infos_events_and_attendees.to_dict('records'),
-                style_table={'height': '400px', 'overflowY': 'auto'},
-                filter_action='native',
-                sort_action='native',
-                row_selectable='multi',
-                page_size=len(df_infos_events_and_attendees),
-                page_action='native',
-                style_cell={'textAlign': 'left', 'padding': '10px', 'fontSize': '14px'},
-                style_header={'backgroundColor': 'rgb(230, 230, 230)', 'fontWeight': 'bold', 'fontSize': '16px'},
-                style_data={'backgroundColor': 'rgb(255, 255, 255)', 'color': 'rgb(50, 50, 50)', 'border': '1px solid rgba(0, 0, 0, 0.1)'}
-            ),
+        dcc.Input(
+            id='page-size-input',
+            type='number',
+            value=50,  # Default value
+            min=1,
+            max=200,
+            step=1,
+            placeholder='Number of rows per page',
+            style={'marginBottom': '10px'}
+        ),
+        dash_table.DataTable(
+            id='attendees-table',
+            columns=[{"name": col, "id": col} for col in columns],
+            data=df_infos_events_and_attendees.to_dict('records'),
+            style_table={'height': '400px', 'overflowY': 'auto'},
+            filter_action='native',
+            sort_action='native',
+            row_selectable='multi',
+            page_action='native',
+            style_cell={'textAlign': 'left', 'padding': '10px', 'fontSize': '14px'},
+            style_header={'backgroundColor': 'rgb(230, 230, 230)', 'fontWeight': 'bold', 'fontSize': '16px'},
+            style_data={'backgroundColor': 'rgb(255, 255, 255)', 'color': 'rgb(50, 50, 50)', 'border': '1px solid rgba(0, 0, 0, 0.1)'}
+        ),
             dbc.Row([
                 dbc.Col(
                     dbc.Button("Export to CSV", id="export-csv-button", n_clicks=0, color="success", className="mt-3", style={'width': '100%'}),
@@ -380,7 +396,7 @@ def display_event_details(n_clicks, selected_event_names, token, start_date, end
     return html.Div("Please select events to display details.")
 
 
-# Callback to update the table
+# Callback to update the table columns
 @app.callback(
     Output('attendees-table', 'columns'),
     Input('column-selector', 'value'),
@@ -392,6 +408,16 @@ def update_table_columns(selected_columns, data):
         raise PreventUpdate
     return [{"name": col, "id": col} for col in selected_columns]
 
+
+# Callback to update the number of rows per page
+@app.callback(
+    Output('attendees-table', 'page_size'),
+    Input('page-size-input', 'value')
+)
+def update_page_size(page_size):
+    if page_size is None or page_size < 1:
+        return 50
+    return page_size
 
 # Callback to export table as csv or xlsx
 @app.callback(
