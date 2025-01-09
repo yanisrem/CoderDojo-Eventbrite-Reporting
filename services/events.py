@@ -31,16 +31,11 @@ def extract_event_informations(event):
 
     Args:
         event (dict): A dictionary representing an event from the Eventbrite API response.
-
     Returns:
         dict: A dictionary containing the following event details:
             - "Name" (str): The name of the event.
             - "Event ID" (str): The unique identifier of the event.
-            - "Description" (str): The description of the event.
-            - "Url" (str): The URL link to the event.
-            - "Creation Date" (str): The date when the event was created.
-            - "Modification Date" (str): The date when the event was last modified.
-            - "Publication Date" (str): The date when the event was published.
+            - "Venue ID" (str): The unique identifier of the venue.
             - "Start Date" (str): The local start date and time of the event.
             - "End Date" (str): The local end date and time of the event.
             - "Capacity" (int or None): The capacity of the event (number of attendees allowed).
@@ -66,11 +61,7 @@ def extract_event_informations(event):
         # {
         #   "Name": "Sample Event",
         #   "Event ID": "1234567890",
-        #   "Description": "This is a sample event description.",
-        #   "Url": "https://eventbrite.com/sample-event",
-        #   "Creation Date": "2024-06-01T12:00:00Z",
-        #   "Modification Date": "2024-06-05T15:00:00Z",
-        #   "Publication Date": "2024-06-02T10:00:00Z",
+        #   "Venue ID": "0054454557",
         #   "Start Date": "2024-06-10T09:00:00",
         #   "End Date": "2024-06-10T17:00:00",
         #   "Capacity": 100,
@@ -85,18 +76,6 @@ def extract_event_informations(event):
             name = pd.NA
     else:
         name = pd.NA
-    # if "description" in list(event.keys()):
-    #     if "text" in list(event["description"].keys()):
-    #         description = event["description"]["text"]
-    #     else:
-    #         description = pd.NA
-    
-    # else:
-    #     description = pd.NA
-    # url = event.get("url", pd.NA)
-    # created_date = event.get("created", pd.NA)
-    # changed_date = event.get("changed", pd.NA)
-    # published_date = event.get("published", pd.NA)
     if "start" in list(event.keys()):
         if "local" in list(event["start"].keys()):
             start_date = event["start"]["local"]
@@ -114,23 +93,19 @@ def extract_event_informations(event):
     capacity = event.get("capacity", pd.NA)
     status = event.get("status", pd.NA)
     id_event = event.get("id", pd.NA)
+    venue_id = event.get("venue_id", pd.NA)
 
     # Build a dictionary with the extracted information
     dict_infos = {
         "Name": name,
         "Event ID": id_event,
-        # "Description": description,
-        # "Url": url,
-        # "Creation Date": created_date,
-        # "Modification Date": changed_date,
-        # "Publication Date": published_date,
+        "Venue ID": venue_id,
         "Start Date": start_date,
         "End Date": end_date,
         "Capacity": capacity,
         "Event Status": status
     }
     return dict_infos
-
 
 def extract_attendee_questions_answers(list_dict_questions_answers_attendee):
     """
