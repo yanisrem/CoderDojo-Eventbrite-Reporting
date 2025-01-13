@@ -4,9 +4,6 @@
 /scrapping.ipynb
 /test_api.ipynb
 api/request_scrappping_eventbrite.py
-dist/
 build/
 cache/
-/app.spec
-/app_for_exe.spec
 eventbriteapp-env/

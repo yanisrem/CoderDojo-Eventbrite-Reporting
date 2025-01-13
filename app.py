@@ -1,4 +1,5 @@
 import os
+import sys
 import requests
 import pandas as pd
 pd.options.mode.chained_assignment = None  # default='warn'
@@ -220,7 +221,14 @@ def display_selected_events(selected_event_names, token, start_date, end_date):
                     return string
 
         df_infos_events_and_attendees["Clean Ticket Type"] = df_infos_events_and_attendees["Ticket Type"].apply(clean_string)
-        df_ticket = pd.read_csv("data/clean_ticket.csv", sep=",", index_col=0)
+        if getattr(sys, 'frozen', False):
+            # Executable
+            application_path = sys._MEIPASS
+        else:
+            # Developement
+            application_path = os.path.dirname(__file__)
+        csv_path = os.path.join(application_path, 'assets', 'clean_ticket.csv')
+        df_ticket = pd.read_csv(csv_path, sep=",", index_col=0)
         #One new column from df_ticket "Ticket Category": Participant, Volunteer or Other
         df_infos_events_and_attendees = pd.merge(
             df_infos_events_and_attendees,
@@ -238,7 +246,9 @@ def display_selected_events(selected_event_names, token, start_date, end_date):
             'First Name Parent/Guardian', 'Phone Number']
         df_infos_events_and_attendees = df_infos_events_and_attendees[columns]
         df_infos_events_and_attendees_participants = df_infos_events_and_attendees.loc[df_infos_events_and_attendees["Ticket Category"] == "Participant"]
+        df_infos_events_and_attendees_participants = df_infos_events_and_attendees_participants.loc[df_infos_events_and_attendees_participants["Attendee Status"] == "Checked In"]
         df_infos_events_and_attendees_volunteers = df_infos_events_and_attendees.loc[df_infos_events_and_attendees["Ticket Category"] == "Volunteer"]
+        df_infos_events_and_attendees_volunteers = df_infos_events_and_attendees_volunteers.loc[df_infos_events_and_attendees_volunteers["Attendee Status"] == "Checked In"]
 
         # Age barplot - Participants
         bins = [-1, 3, 6, 9, 12, 15, 18, np.inf] # [-1, 2], [3, 5], [6, 8], [9,11], [12, 14], [15, 17], [18, +]
@@ -258,7 +268,7 @@ def display_selected_events(selected_event_names, token, start_date, end_date):
         age_barplot_participants = px.bar(
             age_category_counts,
             x='Age', y='Frequency',
-            title="Age distribution of participants",
+            title="Age distribution of checked in participants",
             labels={'Age': 'Age', 'Frequency': 'Frequency (in %)'},
             color='Age',
             color_continuous_scale='Viridis'
@@ -272,7 +282,7 @@ def display_selected_events(selected_event_names, token, start_date, end_date):
         gender_barplot_participants = px.bar(
             gender_category_counts,
             x='Gender', y='Frequency',
-            title="Participants by gender",
+            title="Checked in participants by gender",
             labels={'Gender': 'Gender', 'Frequency': 'Frequency (in %)'},
             color='Gender',
             color_discrete_map={'male': 'blue', 'female': 'pink'}
@@ -295,7 +305,7 @@ def display_selected_events(selected_event_names, token, start_date, end_date):
         age_barplot_volunteers = px.bar(
             age_category_counts,
             x='Age', y='Frequency',
-            title="Age distribution of volunteers",
+            title="Age distribution of checked in volunteers",
             labels={'Age': 'Age', 'Frequency': 'Frequency (in %)'},
             color='Age',
             color_continuous_scale='Viridis'
@@ -309,7 +319,7 @@ def display_selected_events(selected_event_names, token, start_date, end_date):
         gender_barplot_volunteers = px.bar(
             gender_category_counts,
             x='Gender', y='Frequency',
-            title="Volunteers by gender",
+            title="Checked in volunteers by gender",
             labels={'Gender': 'Gender', 'Frequency': 'Frequency (in %)'},
             color='Gender',
             color_discrete_map={'male': 'blue', 'female': 'pink'}
