@@ -264,6 +264,8 @@ def display_selected_events(selected_event_names, token, start_date, end_date):
         df_infos_events_and_attendees_participants.drop(columns=['AgeFilled'], inplace=True)        
         age_category_counts = df_infos_events_and_attendees_participants['AgeRange'].value_counts(normalize=True).reset_index()
         age_category_counts.columns = ['Age', 'Frequency']
+        age_category_counts['Age'] = pd.Categorical(age_category_counts['Age'], categories=names, ordered=True)
+        age_category_counts = age_category_counts.sort_values('Age')
         age_category_counts['Frequency'] = age_category_counts['Frequency'] * 100
         age_barplot_participants = px.bar(
             age_category_counts,
@@ -301,6 +303,8 @@ def display_selected_events(selected_event_names, token, start_date, end_date):
         df_infos_events_and_attendees_volunteers.drop(columns=['AgeFilled'], inplace=True)        
         age_category_counts = df_infos_events_and_attendees_volunteers['AgeRange'].value_counts(normalize=True).reset_index()
         age_category_counts.columns = ['Age', 'Frequency']
+        age_category_counts['Age'] = pd.Categorical(age_category_counts['Age'], categories=names, ordered=True)
+        age_category_counts = age_category_counts.sort_values('Age')
         age_category_counts['Frequency'] = age_category_counts['Frequency'] * 100
         age_barplot_volunteers = px.bar(
             age_category_counts,
