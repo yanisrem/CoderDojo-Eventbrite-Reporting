@@ -7,3 +7,6 @@ api/request_scrappping_eventbrite.py
 build/
 cache/
 eventbriteapp-env/
+/test_resultats_app.ipynb
+/Untitled-1.ipynb
+/Untitled-2.ipynb
