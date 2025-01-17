@@ -1,9 +1,8 @@
-import os
-import sys
 import requests
+import sys
+import os
 import pandas as pd
 import geopandas as gpd
-pd.options.mode.chained_assignment = None  # default='warn'
 import numpy as np
 import re #native
 import unicodedata #native
@@ -18,19 +17,6 @@ from controler.auth_page import auth_page
 from controler.main_page import main_page
 from api.request_eventbrite import get_filter_events_organization, get_location_event, get_event_attendees, RateLimitException
 from services.events import extract_event_informations, extract_attendee_informations, extract_list_name_events
-
-## Diskcache
-if 'REDIS_URL' in os.environ:
-    # Use Redis & Celery if REDIS_URL set as an env variable
-    from celery import Celery
-    celery_app = Celery(__name__, broker=os.environ['REDIS_URL'], backend=os.environ['REDIS_URL'])
-    background_callback_manager = CeleryManager(celery_app)
-
-else:
-    # Diskcache for non-production apps when developing locally
-    import diskcache
-    cache = diskcache.Cache("./cache")
-    background_callback_manager = DiskcacheManager(cache)
 
 # Init Dash app
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP], suppress_callback_exceptions=True)
@@ -95,9 +81,7 @@ def authenticate(n_clicks, token):
     Input('filter-button', 'n_clicks'),
     State('start-date-picker', 'date'),
     State('end-date-picker', 'date'),
-    State('token-store', 'data'),  # Get stored token
-    background=True,
-    manager=background_callback_manager
+    State('token-store', 'data')  # Get stored token
 )
 
 def filter_events(n_clicks, start_date, end_date, token):
@@ -152,7 +136,6 @@ def select_all_events(selected_values, options):
             return all_values
     return selected_values
 
-
 # Display selected events and attendees
 def display_selected_events(selected_event_names, token, start_date, end_date):
     if not selected_event_names or not token:
@@ -173,7 +156,7 @@ def display_selected_events(selected_event_names, token, start_date, end_date):
 
         # Extract events' location informations
         list_dict_address = [get_location_event(token, venue_id) for venue_id in df_event_infos["Venue ID"]]
-        # df_addresses_events.columns = ["address_1", "address_2", "city", ..., "postal_code", ...]
+        #df_addresses_events.columns = ["address_1", "address_2", "city", ..., "postal_code", ...]
         df_addresses_events = pd.DataFrame(list_dict_address)
         list_postal_code_events = df_addresses_events["postal_code"].tolist()
 
@@ -260,7 +243,9 @@ def display_selected_events(selected_event_names, token, start_date, end_date):
         names = ['Missing', '3-5', '6-8', '9-11', '12-14', '15-17', '17>']
 
         ## Replace pd.NA by -1 to avoid error in pd.cut()
-        df_infos_events_and_attendees_participants['AgeFilled'] = df_infos_events_and_attendees_participants['Age'].fillna(-1)
+        with pd.option_context("future.no_silent_downcasting", True):
+            df_infos_events_and_attendees_participants['AgeFilled'] = df_infos_events_and_attendees_participants['Age'].fillna(-1)
+            df_infos_events_and_attendees_participants = df_infos_events_and_attendees_participants.infer_objects(copy=False)
         df_infos_events_and_attendees_participants['AgeRange'] = pd.cut(df_infos_events_and_attendees_participants['AgeFilled'],
                                                                         bins=bins,
                                                                         labels=names,
@@ -299,7 +284,9 @@ def display_selected_events(selected_event_names, token, start_date, end_date):
         bins = [-1, 0, 16, 22, 31, 41, 51, 61, 71, np.inf] # [-1, -1], [0, 15], [16, 21], [22,30], [31, 40], [41, 50], [51, 60], [61, 70], 70>
         names = ['Missing', '<16', '16-21', '22-30', '31-40', '41-50', '51-60', '61-70', '70>']
         ## Replace pd.NA by -1 to avoid error in pd.cut()
-        df_infos_events_and_attendees_volunteers['AgeFilled'] = df_infos_events_and_attendees_volunteers['Age'].fillna(-1)
+        with pd.option_context("future.no_silent_downcasting", True):
+            df_infos_events_and_attendees_volunteers['AgeFilled'] = df_infos_events_and_attendees_volunteers['Age'].fillna(-1)
+            df_infos_events_and_attendees_volunteers = df_infos_events_and_attendees_volunteers.infer_objects(copy=False)
         df_infos_events_and_attendees_volunteers['AgeRange'] = pd.cut(df_infos_events_and_attendees_volunteers['AgeFilled'],
                                                                         bins=bins,
                                                                         labels=names,
@@ -466,7 +453,6 @@ def display_selected_events(selected_event_names, token, start_date, end_date):
     except Exception as e:
         return html.Div(f"An error occurred: {str(e)}", style={'color': 'red'})
 
-
 # Callback to display selected events and attendees
 @app.callback(
     Output('event-details', 'children'),
@@ -474,9 +460,7 @@ def display_selected_events(selected_event_names, token, start_date, end_date):
     State('event-selector', 'value'),
     State('token-store', 'data'),
     State('start-date-picker', 'date'),
-    State('end-date-picker', 'date'),
-    background=True,
-    manager=background_callback_manager
+    State('end-date-picker', 'date')
 )
 
 def display_event_details(n_clicks, selected_event_names, token, start_date, end_date):
@@ -520,9 +504,7 @@ def update_page_size(page_size):
     State("column-selector", "value"),
     State("start-date-picker", "date"),
     State("end-date-picker", "date"),
-    prevent_initial_call=True,
-    background=True,
-    manager=background_callback_manager
+    prevent_initial_call=True
 )
 def export_table(n_clicks_csv, n_clicks_xlsx, data, selected_columns, start_date, end_date):
     if not data or not selected_columns:

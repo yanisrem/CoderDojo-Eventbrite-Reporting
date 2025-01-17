@@ -1,12 +1,7 @@
-/df_infos_events_and_attendees.csv
-/main.py
-/main_functions.ipynb
-/scrapping.ipynb
-/test_api.ipynb
-api/request_scrappping_eventbrite.py
 build/
 cache/
 eventbriteapp-env/
-/test_resultats_app.ipynb
-/Untitled-1.ipynb
-/Untitled-2.ipynb
+brouillon/
+app_cache.py
+requirements_cache.txt
+__pycache__/

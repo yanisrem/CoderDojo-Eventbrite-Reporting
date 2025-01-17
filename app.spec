@@ -2,7 +2,7 @@
 
 
 a = Analysis(
-    ['eventbrite_app.py'],
+    ['app.py'],
     pathex=[],
     binaries=[],
     datas=[('assets', 'assets')],
@@ -22,7 +22,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='eventbrite_app',
+    name='app',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
