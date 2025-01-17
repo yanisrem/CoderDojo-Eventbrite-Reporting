@@ -2,6 +2,7 @@ import os
 import sys
 import requests
 import pandas as pd
+import geopandas as gpd
 pd.options.mode.chained_assignment = None  # default='warn'
 import numpy as np
 import re #native
@@ -172,7 +173,7 @@ def display_selected_events(selected_event_names, token, start_date, end_date):
 
         # Extract events' location informations
         list_dict_address = [get_location_event(token, venue_id) for venue_id in df_event_infos["Venue ID"]]
-        #df_addresses_events.columns = ["address_1", "address_2", "city", ..., "postal_code", ...]
+        # df_addresses_events.columns = ["address_1", "address_2", "city", ..., "postal_code", ...]
         df_addresses_events = pd.DataFrame(list_dict_address)
         list_postal_code_events = df_addresses_events["postal_code"].tolist()
 
@@ -184,9 +185,13 @@ def display_selected_events(selected_event_names, token, start_date, end_date):
                                         "county_name": "Dojo Province",
                                         "state_name": "Dojo Region" #Brussel, Wallonie, Flanders
                                         }, inplace=True)
+        df_event_location_infos['Dojo Region'] = df_event_location_infos['Dojo Region'].replace('Bruxelles-Capitale','Brussels')
+        df_event_location_infos['Dojo Region'] = df_event_location_infos['Dojo Region'].replace('Vlaanderen','Flanders')
+        df_event_location_infos['Dojo Region'] = df_event_location_infos['Dojo Region'].replace('Wallonie','Wallonia')
+    
         df_event_infos.drop(columns=["Venue ID"], inplace=True)
         df_event_infos = pd.concat([df_event_infos, df_event_location_infos], axis=1)
-
+    
         # Extract attendees' informations
         def fetch_attendee_data(event_id):
             """Fetch and process attendee data for a single event."""
@@ -270,21 +275,21 @@ def display_selected_events(selected_event_names, token, start_date, end_date):
         age_barplot_participants = px.bar(
             age_category_counts,
             x='Age', y='Frequency',
-            title="Age distribution of checked in participants",
+            title="Age Distribution of Checked In Participants",
             labels={'Age': 'Age', 'Frequency': 'Frequency (in %)'},
             color='Age',
             color_continuous_scale='Viridis'
         )
         age_barplot_participants.update_layout(showlegend=False)
 
-        # Gender barplot - Partcipants
+        # Gender barplot - Participants
         gender_category_counts = df_infos_events_and_attendees_participants['Gender'].value_counts(normalize=True).reset_index()
         gender_category_counts.columns = ["Gender", "Frequency"]
         gender_category_counts['Frequency'] = gender_category_counts['Frequency'] * 100
         gender_barplot_participants = px.bar(
             gender_category_counts,
             x='Gender', y='Frequency',
-            title="Checked in participants by gender",
+            title="Checked In Participants by Gender",
             labels={'Gender': 'Gender', 'Frequency': 'Frequency (in %)'},
             color='Gender',
             color_discrete_map={'male': 'blue', 'female': 'pink'}
@@ -309,7 +314,7 @@ def display_selected_events(selected_event_names, token, start_date, end_date):
         age_barplot_volunteers = px.bar(
             age_category_counts,
             x='Age', y='Frequency',
-            title="Age distribution of checked in volunteers",
+            title="Age Distribution of Checked In Volunteers",
             labels={'Age': 'Age', 'Frequency': 'Frequency (in %)'},
             color='Age',
             color_continuous_scale='Viridis'
@@ -323,11 +328,81 @@ def display_selected_events(selected_event_names, token, start_date, end_date):
         gender_barplot_volunteers = px.bar(
             gender_category_counts,
             x='Gender', y='Frequency',
-            title="Checked in volunteers by gender",
+            title="Checked In Volunteers by Gender",
             labels={'Gender': 'Gender', 'Frequency': 'Frequency (in %)'},
             color='Gender',
             color_discrete_map={'male': 'blue', 'female': 'pink'}
         )
+
+        # Dojo frequency, Dojo participant, Dojo volunteers per region
+        ## Among dojos, number of times "Flanders" appears (bc one row = one dojo)
+        df_dojo_freq_by_region = df_event_infos['Dojo Region'].value_counts().reset_index()
+        df_dojo_freq_by_region.columns = ["Region", "Number of Dojos per Region"]
+        
+        ## Among participants, number of times "Flanders" appears (bc one row = one participant)
+        df_participant_freq_by_region = df_infos_events_and_attendees_participants['Dojo Region'].value_counts().reset_index()
+        df_participant_freq_by_region.columns = ["Region", "Number of Participants per Region"]
+
+        ## Among volunteers, number of times "Flanders" appears (bc one row = one participant)
+        df_volunteers_freq_by_region = df_infos_events_and_attendees_volunteers['Dojo Region'].value_counts().reset_index()
+        df_volunteers_freq_by_region.columns = ["Region", "Number of Volunteers per Region"]
+
+        ## Merge three Dataframes
+        df_freq_by_region = df_dojo_freq_by_region.merge(df_participant_freq_by_region,on='Region').merge(df_volunteers_freq_by_region,on='Region')
+
+        ## Import geopandas data
+        json_path = os.path.join(application_path, 'assets', 'be.json')
+        belgium_regions = gpd.read_file(json_path)
+        belgium_regions = belgium_regions.rename(columns={"name": "Region"})
+
+        ## Merge geopandas data with regions frequency
+        merged_freq_region = belgium_regions.merge(df_freq_by_region, on="Region")
+        geojson_data = merged_freq_region.__geo_interface__
+
+        ## Graph dojo frequency by region
+        fig_dojo_freq = px.choropleth_mapbox(
+        merged_freq_region,
+        geojson=geojson_data,
+        locations=merged_freq_region.index,
+        color="Number of Dojos per Region",
+        color_continuous_scale="OrRd",
+        mapbox_style="carto-positron",
+        center={"lat": 50.5, "lon": 4.5},
+        zoom=6,
+        opacity=0.7,
+        labels={"Number of Dojos per Region": ""})
+
+        fig_dojo_freq.update_layout(title="Number of Dojos per Region")
+
+        ## Graph participant frequency by region
+        fig_participant_freq = px.choropleth_mapbox(
+        merged_freq_region,
+        geojson=geojson_data,
+        locations=merged_freq_region.index,
+        color="Number of Participants per Region",
+        color_continuous_scale="OrRd",
+        mapbox_style="carto-positron",
+        center={"lat": 50.5, "lon": 4.5},
+        zoom=6,
+        opacity=0.7,
+        labels={"Number of Participants per Region": ""})
+
+        fig_participant_freq.update_layout(title="Number of Checked In Participants per Region")
+
+        ## Graph volunteers frequency by region
+        fig_volunteers_freq = px.choropleth_mapbox(
+        merged_freq_region,
+        geojson=geojson_data,
+        locations=merged_freq_region.index,
+        color="Number of Volunteers per Region",
+        color_continuous_scale="OrRd",
+        mapbox_style="carto-positron",
+        center={"lat": 50.5, "lon": 4.5},
+        zoom=6,
+        opacity=0.7,
+        labels={"Number of Volunteers per Region": ""})
+
+        fig_volunteers_freq.update_layout(title="Number of Checked In Volunteers per Region")
 
         # Display table and graphes
         return html.Div([
@@ -380,7 +455,10 @@ def display_selected_events(selected_event_names, token, start_date, end_date):
                 dbc.Col(dcc.Graph(figure=age_barplot_participants), width=6),
                 dbc.Col(dcc.Graph(figure=gender_barplot_participants), width=6),
                 dbc.Col(dcc.Graph(figure=age_barplot_volunteers), width=6),
-                dbc.Col(dcc.Graph(figure=gender_barplot_volunteers), width=6)
+                dbc.Col(dcc.Graph(figure=gender_barplot_volunteers), width=6),
+                dbc.Col(dcc.Graph(figure=fig_dojo_freq), width=6),
+                dbc.Col(dcc.Graph(figure=fig_participant_freq), width=6),
+                dbc.Col(dcc.Graph(figure=fig_volunteers_freq), width=6)
             ])
         ])
     except RateLimitException as e:
