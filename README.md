@@ -20,7 +20,8 @@ After authentication, the user can retrieve information on participants in Dojos
 - `api`: contains functions to resquest Eventbrite API in order to get informations about events or attendees
 - `controler`: implementation of the authentication page and the main page
 - `services`: uses responses return in `api` to extract and present in a more user friendly way informations about events or attendees
-- `app.py`: Dash application
+- `dist`: contains `app.exe`, the executable file to use the application
+- `app.py`: Dash application written in Python
 
 ## Getting Started
 
@@ -36,7 +37,11 @@ git clone https://github.com/yanisrem/CoderDojo-Eventbrite-Reporting.git
 pip install -r requirements.txt
 ```
 ### Run
-
+- In terminal: open `dist` folder in terminal and execute:
+```bash
+app.exe
+```
+- In Python:
 ```bash
 python app.py
 ```
