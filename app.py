@@ -7,7 +7,7 @@ import numpy as np
 import re #native
 import unicodedata #native
 import dash
-from dash import dcc, html, Input, Output, State, dash_table, DiskcacheManager, CeleryManager
+from dash import dcc, html, Input, Output, State, dash_table
 from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
 from concurrent.futures import ThreadPoolExecutor
