@@ -2,7 +2,6 @@ import requests
 import sys
 import os
 import pandas as pd
-import geopandas as gpd
 import numpy as np
 import re #native
 import unicodedata #native
@@ -325,71 +324,56 @@ def display_selected_events(selected_event_names, token, start_date, end_date):
         ## Among dojos, number of times "Flanders" appears (bc one row = one dojo)
         df_dojo_freq_by_region = df_event_infos['Dojo Region'].value_counts().reset_index()
         df_dojo_freq_by_region.columns = ["Region", "Number of Dojos per Region"]
+        df_dojo_freq_by_region['Region'] = pd.Categorical(df_dojo_freq_by_region['Region'],
+                                                          categories=["Flanders", "Wallonia", "Brussels"],
+                                                          ordered=True)
+        df_dojo_freq_by_region = df_dojo_freq_by_region.sort_values('Region')
+
+        fig_dojo_freq = px.bar(
+            df_dojo_freq_by_region,
+            x='Region', y='Number of Dojos per Region',
+            title="Number of Dojos per Region",
+            labels={'Region': 'Region', 'Number of Dojos per Region': ''},
+            color='Region',
+            color_continuous_scale='Viridis'
+        )
+        fig_dojo_freq.update_layout(showlegend=False)
         
         ## Among participants, number of times "Flanders" appears (bc one row = one participant)
         df_participant_freq_by_region = df_infos_events_and_attendees_participants['Dojo Region'].value_counts().reset_index()
         df_participant_freq_by_region.columns = ["Region", "Number of Participants per Region"]
+        df_participant_freq_by_region['Region'] = pd.Categorical(df_participant_freq_by_region['Region'],
+                                                                 categories=["Flanders", "Wallonia", "Brussels"],
+                                                                 ordered=True)
+        df_participant_freq_by_region = df_participant_freq_by_region.sort_values('Region')
 
+        fig_participant_freq = px.bar(
+            df_participant_freq_by_region,
+            x='Region', y='Number of Participants per Region',
+            title="Number of Checked In Participants per Region",
+            labels={'Region': 'Region', 'Number of Participants per Region': ''},
+            color='Region',
+            color_continuous_scale='Viridis'
+        )
+        fig_participant_freq.update_layout(showlegend=False)
+        
         ## Among volunteers, number of times "Flanders" appears (bc one row = one participant)
         df_volunteers_freq_by_region = df_infos_events_and_attendees_volunteers['Dojo Region'].value_counts().reset_index()
         df_volunteers_freq_by_region.columns = ["Region", "Number of Volunteers per Region"]
+        df_volunteers_freq_by_region['Region'] = pd.Categorical(df_volunteers_freq_by_region['Region'],
+                                                                 categories=["Flanders", "Wallonia", "Brussels"],
+                                                                 ordered=True)
+        df_volunteers_freq_by_region = df_volunteers_freq_by_region.sort_values('Region')
 
-        ## Merge three Dataframes
-        df_freq_by_region = df_dojo_freq_by_region.merge(df_participant_freq_by_region,on='Region').merge(df_volunteers_freq_by_region,on='Region')
-
-        ## Import geopandas data
-        json_path = os.path.join(application_path, 'assets', 'be.json')
-        belgium_regions = gpd.read_file(json_path)
-        belgium_regions = belgium_regions.rename(columns={"name": "Region"})
-
-        ## Merge geopandas data with regions frequency
-        merged_freq_region = belgium_regions.merge(df_freq_by_region, on="Region")
-        geojson_data = merged_freq_region.__geo_interface__
-
-        ## Graph dojo frequency by region
-        fig_dojo_freq = px.choropleth_mapbox(
-        merged_freq_region,
-        geojson=geojson_data,
-        locations=merged_freq_region.index,
-        color="Number of Dojos per Region",
-        color_continuous_scale="OrRd",
-        mapbox_style="carto-positron",
-        center={"lat": 50.5, "lon": 4.5},
-        zoom=6,
-        opacity=0.7,
-        labels={"Number of Dojos per Region": ""})
-
-        fig_dojo_freq.update_layout(title="Number of Dojos per Region")
-
-        ## Graph participant frequency by region
-        fig_participant_freq = px.choropleth_mapbox(
-        merged_freq_region,
-        geojson=geojson_data,
-        locations=merged_freq_region.index,
-        color="Number of Participants per Region",
-        color_continuous_scale="OrRd",
-        mapbox_style="carto-positron",
-        center={"lat": 50.5, "lon": 4.5},
-        zoom=6,
-        opacity=0.7,
-        labels={"Number of Participants per Region": ""})
-
-        fig_participant_freq.update_layout(title="Number of Checked In Participants per Region")
-
-        ## Graph volunteers frequency by region
-        fig_volunteers_freq = px.choropleth_mapbox(
-        merged_freq_region,
-        geojson=geojson_data,
-        locations=merged_freq_region.index,
-        color="Number of Volunteers per Region",
-        color_continuous_scale="OrRd",
-        mapbox_style="carto-positron",
-        center={"lat": 50.5, "lon": 4.5},
-        zoom=6,
-        opacity=0.7,
-        labels={"Number of Volunteers per Region": ""})
-
-        fig_volunteers_freq.update_layout(title="Number of Checked In Volunteers per Region")
+        fig_volunteers_freq = px.bar(
+            df_volunteers_freq_by_region,
+            x='Region', y='Number of Volunteers per Region',
+            title="Number of Checked In Volunteers per Region",
+            labels={'Region': 'Region', 'Number of Volunteers per Region': ''},
+            color='Region',
+            color_continuous_scale='Viridis'
+        )
+        fig_volunteers_freq.update_layout(showlegend=False)
 
         # Display table and graphes
         return html.Div([
