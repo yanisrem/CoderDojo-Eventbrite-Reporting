@@ -10,7 +10,7 @@ def get_filter_events_organization(token, start_date, end_date, id_organization=
     Fetches events from the Eventbrite API for a specific organization.
 
     Args:
-        token (str): The authentication token for the Eventbrite API.
+        token (str): The authentification token for the Eventbrite API.
         start_date (str): The start date for filtering events, in "YYYY-MM-DD" format.
         end_date (str): The end date for filtering events, in "YYYY-MM-DD" format.
         id_organization (str): The ID of the organization. Default is "53624399466".
@@ -66,7 +66,7 @@ def get_location_event(token, venue_id):
 
     Parameters:
     ----------
-    token (str): The authentication token for the Eventbrite API.
+    token (str): The authentification token for the Eventbrite API.
     venue_id (str): The unique identifier of the venue for which address information is being retrieved.
 
     Returns:
